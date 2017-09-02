@@ -1,9 +1,9 @@
-package summerframework.test;
+package summerframework.test.cat;
 
 public class Cat {
     private String nickName;
-    private Integer legs;
-    private CatBody body;
+    private Integer age;
+    private Body body;
 
     public String getNickName() {
         return nickName;
@@ -13,19 +13,19 @@ public class Cat {
         this.nickName = nickName;
     }
 
-    public Integer getLegs() {
-        return legs;
+    public Integer getAge() {
+        return age;
     }
 
-    public void setLegs(Integer legs) {
-        this.legs = legs;
+    public void setAge(Integer age) {
+        this.age = age;
     }
 
-    public CatBody getBody() {
+    public Body getBody() {
         return body;
     }
 
-    public void setBody(CatBody body) {
+    public void setBody(Body body) {
         this.body = body;
     }
 

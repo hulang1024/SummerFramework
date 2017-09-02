@@ -1,6 +1,6 @@
-package summerframework.test;
+package summerframework.test.cat;
 
-public class CatBody {
+public class Leg {
     private String color;
 
     public String getColor() {
