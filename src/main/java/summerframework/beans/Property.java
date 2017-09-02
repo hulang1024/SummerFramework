@@ -1,4 +1,4 @@
-package summerframework.core.bean;
+package summerframework.beans;
 
 /**
  * 属性

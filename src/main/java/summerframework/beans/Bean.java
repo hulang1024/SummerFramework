@@ -1,15 +1,24 @@
-package summerframework.core.bean;
+package summerframework.beans;
 
 import java.util.List;
 
+import javax.xml.ws.handler.MessageContext.Scope;
+
 /**
- * Bean
+ * Bean描述
  * @author hulang
  */
 public class Bean {
     private String name;
     private String className;
     private List<Property> properties;
+    private Scope scope = Scope.SINGLETON;
+    private boolean singleton = true;
+    
+    public static enum Scope {
+        SINGLETON,
+        PROTOTYPE;
+    }
     
     public String getName() {
         return name;
@@ -34,4 +43,24 @@ public class Bean {
     public void setProperties(List<Property> properties) {
         this.properties = properties;
     }
+
+    public Scope getScope() {
+        return scope;
+    }
+
+    public void setScope(Scope scope) {
+        this.scope = scope;
+        singleton = scope == Scope.SINGLETON;
+    }
+
+    public boolean isSingleton() {
+        return singleton;
+    }
+
+    public void setSingleton(boolean singleton) {
+        this.singleton = singleton;
+        if (singleton)
+            scope = Scope.SINGLETON;
+    }
+
 }

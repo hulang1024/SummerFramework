@@ -26,4 +26,10 @@
 		</property>
 		<property name="body" ref="catBody" />
 	</bean>
+	
+	<bean id="myWhiteCat" class="summerframework.test.cat.Cat"></bean>
+	
+	<bean id="myBlueCat" class="summerframework.test.cat.Cat" scope="prototype"></bean>
+	<bean id="myBlackCat" class="summerframework.test.cat.Cat" singleton="false"></bean>
+
 </beans>
