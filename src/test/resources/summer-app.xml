@@ -1,11 +1,29 @@
 <beans>
-	<bean name="catBody" class="summerframework.test.CatBody">
+	<bean name="catBody" class="summerframework.test.cat.Body">
 		<property name="color" value="yellow" />
+		<property name="legs">
+			<list>
+				<bean class="summerframework.test.cat.Leg">
+					<property name="color" value="red" />
+				</bean>
+				<bean class="summerframework.test.cat.Leg">
+					<property name="color" value="green" />
+				</bean>
+				<bean class="summerframework.test.cat.Leg">
+					<property name="color" value="blue" />
+				</bean>
+				<bean class="summerframework.test.cat.Leg">
+					<property name="color" value="white" />
+				</bean>
+			</list>
+		</property>
 	</bean>
 	
-	<bean id="cat" class="summerframework.test.Cat">
+	<bean id="cat" class="summerframework.test.cat.Cat">
 		<property name="nickName" value="orange" />
-		<property name="legs" value="4" />
+		<property name="age">
+			<value>5</value>
+		</property>
 		<property name="body" ref="catBody" />
 	</bean>
 </beans>
