@@ -1,14 +1,21 @@
 package summerframework.beans.factory;
 
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.beanutils.BeanUtils;
+import org.apache.commons.beanutils.PropertyUtils;
 import org.dom4j.Attribute;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -16,18 +23,21 @@ import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 
 import summerframework.beans.Bean;
+import summerframework.beans.Bean.Autowire;
 import summerframework.beans.Bean.Scope;
+import summerframework.beans.BeansException;
 import summerframework.beans.Property;
 import summerframework.beans.Property.ValueType;
-import summerframework.exception.BeanDefineUnexpectedException;
 
 /**
  * 从XML文件装入bean的工厂
  * @author hulang
  */
 public class XMLBeanFactory implements BeanFactory {
-    private Map<String, Bean> beanMap = new HashMap<String, Bean>();
-    private Map<String, Object> singletonCacheMap = new HashMap<String, Object>();
+    /**
+     *  按定义顺序加入
+     */
+    private List<Bean> beanDefinitionList = new ArrayList<Bean>();
     
     public XMLBeanFactory() {}
     public XMLBeanFactory(InputStream input) {
@@ -46,34 +56,42 @@ public class XMLBeanFactory implements BeanFactory {
         List<Element> beanElems = root.elements();
         for (Element beanElem : beanElems) {
             Bean bean = parseBeanElement(beanElem);
-            
-            // 注册bean到上下文
-            setBean(bean.getName(), bean);
+
+            addBean(bean);
+        }
+        
+        instancetiateSingletons();
+    }
+    
+    private void instancetiateSingletons() {
+        Collection<Bean> allDefinedBeans = beanDefinitionList;
+        for (Bean bean : allDefinedBeans) {
+            if (bean.isSingleton())
+                createBean(bean);
         }
     }
     
     @Override
     public Object getBean(String name) {
-        // 判断如果存在于单例缓存中，返回该单例
-        Object object = singletonCacheMap.get(name);
-        if (object != null)
-            return object;
-        
-        Bean bean = beanMap.get(name);
+        Bean bean = findByName(name);
         if (bean == null)
-            return null;
+            throw new NoSuchBeanDefintionException("No bean named '" + name + "' available");
         
-        // 创建bean描述的对象
-        object = createBean(bean);
-        // 判断bean描述单例作用域，就放到单例缓存中
         if (bean.isSingleton())
-            singletonCacheMap.put(name, object);
+            return bean.getObject();
         
-        return object;
+        return createBean(bean);
     }
 
-    private void setBean(String name, Bean bean) {
-        beanMap.put(name, bean);
+    private void addBean(Bean bean) {
+        beanDefinitionList.add(bean);
+    }
+    
+    private Bean findByName(String name) {
+        for (Bean bean : beanDefinitionList)
+            if (bean.getName().equals(name))
+                return bean;
+        return null;
     }
     
     private Object createBean(Object object) {
@@ -83,57 +101,139 @@ public class XMLBeanFactory implements BeanFactory {
             return object;
         
         Bean bean = (Bean)object;
-        String className = bean.getClassName();
-        Class<?> clazz = null;
-
-        try {
-            clazz = Class.forName(className);
-            if (clazz == null)
-                return null;
-            object = clazz.newInstance();
-
-            // 求值bean依赖属性
-            List<Property> properties = bean.getProperties();
-            for (Property property : properties) {
-                Object valueForSet = null;
-                switch (property.getValueType()) {
-                case SIMPLE:
-                    valueForSet = property.getValue();
-                    break;
-                case REF:
-                    valueForSet = getBean( (String)property.getValue() );
-                    break;
-                case BEAN:
-                    valueForSet = createBean( property.getValue() );
-                    break;
-                case LIST:
-                    List<Object> valueList = new ArrayList<Object>();
-                    List<Object> exprList = (List)property.getValue();
-                    for (Iterator iter = exprList.iterator(); iter.hasNext(); ) {
-                        valueList.add( createBean( iter.next() ) );
-                    }
-                    valueForSet = valueList;
-                    break;
-                case SET:
-                case MAP:
-                    valueForSet = property.getValue();
-                    break;
-                default: ;
-                }
-                // 反射设置属性值
-                BeanUtils.setProperty(object, property.getName(), valueForSet);
+        
+        // 加载bean定义的类
+        Class<?> clazz;
+        if (bean.getClazz() == null) {
+            try {
+                clazz = Class.forName(bean.getClassName());
+            } catch (ClassNotFoundException e) {
+                throw new BeansException(e);
             }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
+            if (clazz == null)
+                throw new BeansException("");
+            bean.setClazz(clazz);
+        } else {
+            clazz = bean.getClazz();
+        }
+        
+        try {
+            object = clazz.newInstance();
+            bean.setObject(object);
+
+            doBeanAutowire(bean);
+            setBeanProperty(bean);
+        }catch (InstantiationException e) {
             e.printStackTrace();
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
             e.printStackTrace();
         }
         
         return object;
+    }
+    
+    private void setBeanProperty(Bean bean) {
+        List<Property> properties = bean.getProperties();
+        for (Property property : properties) {
+            Object valueForSet = null;
+            switch (property.getValueType()) {
+            case SIMPLE:
+                valueForSet = property.getValue();
+                break;
+            case REF:
+                valueForSet = getBean( (String)property.getValue() );
+                break;
+            case BEAN:
+                valueForSet = createBean( property.getValue() );
+                break;
+            case LIST:
+                List<Object> valueList = new ArrayList<Object>();
+                List<Object> exprList = (List)property.getValue();
+                for (Iterator iter = exprList.iterator(); iter.hasNext(); ) {
+                    valueList.add( createBean( iter.next() ) );
+                }
+                valueForSet = valueList;
+                break;
+            case SET:
+            case MAP:
+                valueForSet = property.getValue();
+                break;
+            default: ;
+            }
+            
+            try {
+                BeanUtils.setProperty(bean.getObject(), property.getName(), valueForSet);
+            } catch (IllegalAccessException e) {
+                throw new BeansException(e);
+            } catch (InvocationTargetException e) {
+                throw new BeansException(e);
+            }
+        }
+    }
+    
+    private void doBeanAutowire(Bean bean) {
+        switch (bean.getAutowire()) {
+        case BY_NAME:
+            autowiredByName(bean);
+            break;
+        case BY_TYPE:
+            autowiredByType(bean);
+            break;
+        case CONSTRUCTOR:
+            autowiredByConstructor(bean);
+            break;
+        case NO:
+            break;
+        default:
+            ;
+        }
+    }
+    
+    private void autowiredByName(Bean bean) {
+        try {
+            BeanInfo beanInfo = Introspector.getBeanInfo(bean.getClazz());
+            PropertyDescriptor[] descriptors = beanInfo.getPropertyDescriptors();
+            
+            for (PropertyDescriptor desc : descriptors) {
+                for (Bean definedBean : beanDefinitionList) {
+                    if (desc.getName().equals(definedBean.getName())) {
+                        desc.getWriteMethod().invoke(bean.getObject(), createBean(definedBean) );
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new BeansException(e);
+        }
+    }
+    
+    private void autowiredByType(Bean bean) {
+        try {
+            BeanInfo beanInfo = Introspector.getBeanInfo(bean.getClazz());
+            PropertyDescriptor[] descriptors = beanInfo.getPropertyDescriptors();
+
+            PropertyDescriptor usePd = null;
+            List<Bean> foundBeans = new ArrayList<Bean>();
+            for (PropertyDescriptor desc : descriptors) {
+                for (Bean definedBean : beanDefinitionList) {
+                    if (desc.getPropertyType().equals(definedBean.getClazz())) {
+                        foundBeans.add(definedBean);
+                        usePd = desc;
+                    }
+                }
+            }
+            
+            if (!foundBeans.isEmpty()) {
+                if (foundBeans.size() > 1)
+                    throw new BeansException("too many");
+                usePd.getWriteMethod().invoke(bean.getObject(), createBean(foundBeans.get(0)) );
+            }
+        } catch (Exception e) {
+            throw new BeansException(e);
+        }
+    }
+    
+    private void autowiredByConstructor(Bean bean) {
     }
     
     private Bean parseBeanElement(Element beanElem) {
@@ -164,6 +264,15 @@ public class XMLBeanFactory implements BeanFactory {
         if ("false".equals(singleton))
             bean.setSingleton(false);
         
+        // 解析bean元素autowire属性
+        String autowire = beanElem.attributeValue("autowire");
+        if ("byName".equals(autowire))
+            bean.setAutowire(Autowire.BY_NAME);
+        else if ("byType".equals(autowire))
+            bean.setAutowire(Autowire.BY_TYPE);
+        else if ("constructor".equals(autowire))
+            bean.setAutowire(Autowire.CONSTRUCTOR);
+        
         // 解析bean依赖属性
         List<Property> beanProperties = new ArrayList<Property>();
         
@@ -189,7 +298,7 @@ public class XMLBeanFactory implements BeanFactory {
                 } else {
                     List<Element> elems = propElem.elements();
                     if (elems.size() > 1)
-                        throw new BeanDefineUnexpectedException();
+                        throw new BeansException("parse error");
                     Element valueElem = elems.get(0);
                     switch( valueElem.getName() ) {
                     case "value":
@@ -217,7 +326,7 @@ public class XMLBeanFactory implements BeanFactory {
         
         return bean;
     }
-
+    
     private Object parseValueElement(Element valueElem) {
         return valueElem.getData();
     }

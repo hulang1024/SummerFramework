@@ -8,6 +8,7 @@ public class Property {
     private String name;
     private Object value;
     private ValueType valueType;
+    private String type;
     
     /**
      * 属性值的类型
@@ -18,7 +19,7 @@ public class Property {
         BEAN,
         LIST,
         SET,
-        MAP;
+        MAP
     }
 
     public String getName() {
@@ -44,4 +45,13 @@ public class Property {
     public void setValueType(ValueType valueType) {
         this.valueType = valueType;
     }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
 }

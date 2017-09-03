@@ -6,11 +6,6 @@ import summerframework.beans.factory.BeanFactory;
  * 应用上下文
  * @author hulang
  */
-public abstract class ApplicationContext implements BeanFactory {
-    protected BeanFactory factory;
+public interface ApplicationContext extends BeanFactory {
 
-    @Override
-    public Object getBean(String name) {
-        return factory.getBean(name);
-    }
 }

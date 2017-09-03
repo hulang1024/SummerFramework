@@ -1,10 +1,14 @@
-package summerframework.test.cat;
+package beans.cat;
 
 import java.util.List;
 
 public class Body {
     private String color;
     private List<Leg> legs;
+    
+    public Body() {
+        System.out.println("new " + getClass().getName());
+    }
 
     public String getColor() {
         return color;

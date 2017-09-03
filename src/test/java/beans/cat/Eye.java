@@ -1,8 +1,12 @@
-package summerframework.test.cat;
+package beans.cat;
 
-public class Leg {
+public class Eye {
     private String color;
 
+    public Eye() {
+        System.out.println("new " + getClass().getName());
+    }
+    
     public String getColor() {
         return color;
     }

@@ -2,28 +2,40 @@ package summerframework.test;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotSame;
-import static junit.framework.TestCase.assertNull;
 
 import java.util.Iterator;
 
-import org.junit.Before;
 import org.junit.Test;
 
-import summerframework.context.ApplicationContext;
-import summerframework.context.ClassPathXmlApplicationContext;
-import summerframework.test.cat.Body;
-import summerframework.test.cat.Cat;
-import summerframework.test.cat.Leg;
+import beans.cat.Body;
+import beans.cat.Cat;
+import beans.cat.Head;
+import beans.cat.Leg;
 
 
 public class SimpleTest {
-    private ApplicationContext context;
+//    private org.springframework.context.ApplicationContext context
+//        = new org.springframework.context.support.ClassPathXmlApplicationContext("summer-app.xml");
     
-    @Before
-    public void initContext() {
-        context = new ClassPathXmlApplicationContext("summer-app.xml");
+    private summerframework.context.ApplicationContext context
+        = new summerframework.context.support.ClassPathXmlApplicationContext("summer-app.xml");
+    
+    @Test
+    public void startup() {
+        /* console output first:
+        new beans.cat.Eye
+        new beans.cat.Head
+        new beans.cat.Body
+        new beans.cat.Leg
+        new beans.cat.Leg
+        new beans.cat.Leg
+        new beans.cat.Leg
+        load beans.cat.Cat
+        new beans.cat.Cat
+        new beans.cat.Cat
+         */
     }
-    
+
     @Test
     public void testPropertyDI() {
         Cat cat = (Cat)context.getBean("cat");
@@ -38,15 +50,26 @@ public class SimpleTest {
         for (String c : colors)
             assertEquals(legsIter.next().getColor(), c);
         
-        Body catBody = (Body)context.getBean("body");
-        assertNull(catBody);
+        assertNotSame(cat.getHead(), null);
+        assertNotSame(cat.getHead().getEye().getColor(), "black");
+        
+        Body catBody;
+        
+        boolean ex = false;
+        try {
+            catBody = (Body)context.getBean("body");
+        } catch (Exception e) {
+            ex = true;
+            e.printStackTrace();
+        }
+        assertEquals(true, ex);
+
         catBody = (Body)context.getBean("catBody");
         assertEquals(catBody.getColor(), "yellow");
-
     }
-    
+
     @Test
-    public void testDefaultScope() {
+    public void testDefaultSingletonScope() {
         Cat cat = (Cat)context.getBean("cat");
         Body catBody = (Body)context.getBean("catBody");
         assertEquals(cat.getBody(), catBody);
@@ -62,9 +85,11 @@ public class SimpleTest {
         Cat cat1 = (Cat)context.getBean("myBlueCat");
         Cat cat2 = (Cat)context.getBean("myBlueCat");
         assertNotSame(cat1, cat2);
-        
-        Cat cat3 = (Cat)context.getBean("myBlackCat");
-        Cat cat4 = (Cat)context.getBean("myBlackCat");
-        assertNotSame(cat3, cat4);
+    }
+    
+    @Test
+    public void testByTypeAutowire() {
+        Head head = (Head)context.getBean("head");
+        assertNotSame(head.getEye().getColor(), "black");
     }
 }
